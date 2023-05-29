@@ -1,1 +1,184 @@
+#importing packages
+library(readxl)
+library(lattice)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+library(fst)
+library(readr)
+library(SnowballC)
+library(tidyr)
+library(corrplot)
+library(ggcorrplot)
+library(correlation)
+library(VIM)
+library(PerformanceAnalytics)
+library(sm)
+library(ggfortify)
+library(cluster)
+library(ClusterR)
+library(factoextra)
+library(FNN)
+library(dbscan)
+library(isotree)
+'install.packages("AnomalyDetection")'
+'install.packages("anomalize")'
+library(AnomalyDetection)
+library(anomaly)
+library(class)
+
+
+
+
+#file has been imported in R
+SPE_shale <- read_excel("C:/Users/USER/OneDrive/Masaüstü/SPE_shale.xlsx")
+View(SPE_shale)
+summary(SPE_shale)
+glimpse(SPE_shale)
+head(SPE_shale)
+is.na(SPE_shale)
+
+
+
+##2a part
+#yazı kısımlarını ayırdım
+
+SPE_Shale_1 <- SPE_shale %>%
+  select(-'Lease',-'State',-'Formation')
+
+scale_SPE <- scale(SPE_Shale_1)
+
+
+
+#k-means
+kmeans.model <- kmeans(scale_SPE, centers = 10, nstart = 20)
+kmeans.model$cluster
+print(kmeans.model)
+str(kmeans.model)
+
+
+#initilaze wss
+wss <- 0
+
+#for 1 to 10 cluster centers 
+for (i in 1:10)  {
+  km.model <- kmeans(scale_SPE, centers = i)
+  #Save total within sum of squares vs. number of clusters
+  wss[i] <- km.model$tot.withinss
+}
+
+#Plot total within sum of squares vs.number of clusters
+plot(1:10, wss, type='b',
+     xlab = "Number of Clusters",
+     ylab = "Within groups of sum of squares")
+
+
+##2b part
+
+# Calculates similarity as Euclidean distance between observations
+dist_matrix <- dist(scale_SPE)
+dist_matrix
+
+#hierhacial clustering model
+hclust.model<- hclust(d = dist_matrix)
+hclust.model
+summary(hclust.model)
+
+
+#dendongram plotting
+plot(hclust.model)
+
+
+# Cut by height h
+cutree(hclust.model, h = 100)
+abline(h=100, col="red")
+
+
+
+# Cut by height h
+cutree(hclust.model, k = 2)
+
+
+
+
+# Fitting various hierarchical clustering models
+hclust.complete <- hclust(dist_matrix, method = "complete")
+plot(hclust.complete)
+abline(h = 6, col = "blue")
+
+
+hclust.average <- hclust(dist_matrix, method = "average")
+plot(hclust.average)
+abline(h = 6, col = "blue")
+
+
+
+
+hclust.single <- hclust(dist_matrix, method = "single")
+plot(hclust.single)
+abline(h = 6, col = "blue")
+
+
+
+##2c part
+
+#k-nearest to 5
+knn_neighbors_5 <- get.knn(data = scale_SPE, k=5)
+knn_neighbors_5
+
+distance_knn_5 <- knn_neighbors_5$nn.dist
+head(distance_knn_5)
+
+dist_matrix_1 <- rowMeans(knn_neighbors_5$nn.dist)
+which.max(dist_matrix$score)
+
+
+dist_matrix_1[1:5]
+dist_matrix$score2 <- dist_matrix_1
+
+
+
+
+#k-nearest to 10
+knn_neighbors_10 <- get.knn(data = scale_SPE, k=10)
+knn_neighbors_10
+
+distance_knn_10 <- knn_neighbors_10$nn.dist
+head(distance_knn_10)
+
+dist_matrix_score <- rowMeans(knn_neighbors_10$nn.dist)
+which.max(dist_matrix$score)
+
+dist_matrix_score[1:10]
+
+dist_matrix$score <- dist_matrix_score
+
+
+#LOF score
+d_scaled <- data.frame(scale_SPE)
+d_lof <- lof(d_scaled, minPts = 4)
+d_lof
+
+d_scaled1 <- data.frame(d_scaled,d_lof)
+
+
+plot(d_lof, pch = 20, col = ifelse(d_lof > 1, "red", "blue"),
+     main = "Local Outlier Factor (LOF) Plot",
+     xlab = "Observation", ylab = "LOF Score")
+
+
+
+#isolation forest
+d_tree <-isolation.forest(data=scale_SPE, ntrees=1)
+d_tree_score <- predict(d_tree, newdata = scale_SPE)
+d_tree_score
+d_tree_score$anomaly <- ifelse(d_tree_score == -1, 1, 0)
+d_tree_score$anomaly
+
+
+d_forest <-isolation.forest(data=scale_SPE, ntrees=100)
+d_forest_score <- predict(d_forest, newdata = scale_SPE)
+d_forest_score$anomaly <- ifelse(d_forest_score == -1, 1, 0)
+d_forest_score$anomaly
+
 
